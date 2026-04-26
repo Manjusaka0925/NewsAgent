@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>闻新</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366f1'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-weight='800' font-size='14' fill='white'>闻</text></svg>" />
+  </head>
+  <body>
+    <div class="bg-nebula"></div>
+    <div class="bg-stars" id="bgStars"></div>
+
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>闻新</h1>
+          <p>AI 驱动的新闻探索</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <span class="nav-section-label">导航</span>
+        <button class="nav-btn active" data-view="home">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+          开始探索
+        </button>
+        <button class="nav-btn" data-view="browse">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+          新闻浏览
+        </button>
+        <button class="nav-btn" data-view="weather">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h.71C7.37 7.69 9.48 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z"/></svg>
+          天气导览
+        </button>
+        <button class="nav-btn" data-view="stock">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>
+          股市分析
+        </button>
+        <button class="nav-btn" data-view="chat">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+          AI 智能搜索
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="nav-divider"></div>
+        <div class="sidebar-meta">
+          <div class="status-dot"></div>
+          <span id="statusBox">系统就绪</span>
+        </div>
+        <p class="credit">Powered by AI &amp; LangGraph</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- Home / Hero View -->
+      <section class="view view-home active" id="view-home">
+        <div class="hero-card">
+          <div class="hero-badge">
+            <div class="hero-badge-dot"></div>
+            AI News Intelligence
+          </div>
+
+          <h2 class="hero-title">用<em>AI</em>探索<br/>世界正在发生的事</h2>
+
+          <p class="hero-desc">
+            闻新融合大模型与实时网络搜索，为你提炼每一条新闻的中英双语摘要。越用越懂你。
+          </p>
+
+          <div class="hero-actions">
+            <button id="startBtn" class="btn btn-primary">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              开始阅读
+            </button>
+            <button class="btn btn-ghost" data-goto-chat>
+              <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+              智能搜索
+            </button>
+          </div>
+
+          <div class="hero-features">
+            <span class="hero-feature">
+              <svg class="hero-feature-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              双语摘要
+            </span>
+            <span class="hero-feature">
+              <svg class="hero-feature-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              AI 个性化推荐
+            </span>
+            <span class="hero-feature">
+              <svg class="hero-feature-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              原文深度阅读
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Browse View -->
+      <section class="view view-browse" id="view-browse">
+        <div class="view-browse-header">
+          <div class="view-title-group">
+            <h2>新闻浏览</h2>
+            <p>点击上方按钮获取下一条 / 上一条推荐新闻</p>
+          </div>
+          <div class="browse-actions">
+            <button class="icon-btn" id="refreshBtn" title="刷新">
+              <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="news-stream-wrapper">
+          <div class="news-stream" id="newsStream"></div>
+          <button id="nextNewsBtn" class="floating-next" aria-label="下一条新闻">
+            <svg viewBox="0 0 24 24"><path d="M12 16l-6-6 1.41-1.41L12 13.17l4.59-4.58L18 10z"/></svg>
+          </button>
+          <button id="prevNewsBtn" class="floating-prev" aria-label="上一条新闻">
+            <svg viewBox="0 0 24 24"><path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/></svg>
+          </button>
+          <div id="browseCaption" class="overlay-caption hidden">
+            <div class="spinner"></div>
+            正在拉取下一条新闻...
+          </div>
+        </div>
+      </section>
+
+      <!-- Weather View -->
+      <section class="view view-weather" id="view-weather">
+        <div class="view-browse-header">
+          <div class="view-title-group">
+            <h2>天气导览</h2>
+            <p>实时天气与未来预报，助你出行无忧</p>
+          </div>
+        </div>
+
+        <div class="weather-cards-container" id="weatherCardsContainer">
+          <!-- Weather cards rendered by JS -->
+        </div>
+      </section>
+
+      <!-- Stock Market View -->
+      <section class="view view-stock" id="view-stock">
+        <div class="view-browse-header">
+          <div class="view-title-group">
+            <h2>股市分析</h2>
+            <p>点击卡片查看过去一周价格变化</p>
+          </div>
+        </div>
+        <div class="stock-cards-container" id="stockCardsContainer">
+          <!-- Stock cards rendered by JS -->
+        </div>
+        <div class="stock-chart-overlay hidden" id="stockChartOverlay">
+          <div class="stock-chart-modal">
+            <div class="stock-chart-header">
+              <div class="stock-chart-title-group">
+                <span class="stock-chart-name" id="stockChartName"></span>
+                <span class="stock-chart-code" id="stockChartCode"></span>
+              </div>
+              <div class="stock-chart-meta" id="stockChartMeta"></div>
+              <button class="stock-chart-close" id="stockChartClose">
+                <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            </div>
+            <div class="stock-chart-container" id="stockChartContainer"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Chat View -->
+      <section class="view view-chat" id="view-chat">
+        <div class="view-browse-header">
+          <div class="view-title-group">
+            <h2>AI 智能搜索</h2>
+            <p>告诉 AI 你想了解的话题，它会为你搜索并学习你的偏好</p>
+          </div>
+        </div>
+
+        <div class="chat-window" id="chatWindow">
+          <div class="chat-empty" id="chatEmpty">
+            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+            <p>输入你的问题，AI 将为你搜索相关新闻，并持续学习你的阅读偏好。</p>
+          </div>
+        </div>
+
+        <div id="chatCaption" class="overlay-caption hidden">
+          <div class="spinner"></div>
+          大模型思考中...
+        </div>
+
+        <form id="chatForm" class="chat-form">
+          <textarea
+            id="chatInput"
+            placeholder="例如：请给我今天关于 AI 投资并购的新闻"
+            rows="2"
+          ></textarea>
+          <button type="submit" class="btn btn-primary" id="chatSubmitBtn">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            发送
+          </button>
+        </form>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/assets/app.js"></script>
+    <script>
+      // Generate star field
+      (function () {
+        const container = document.getElementById('bgStars');
+        const count = 80;
+        for (let i = 0; i < count; i++) {
+          const star = document.createElement('div');
+          star.className = 'star';
+          star.style.left = Math.random() * 100 + '%';
+          star.style.top = Math.random() * 100 + '%';
+          star.style.setProperty('--dur', (2 + Math.random() * 4) + 's');
+          star.style.setProperty('--delay', (Math.random() * 4) + 's');
+          const size = Math.random() < 0.7 ? '2px' : (Math.random() < 0.5 ? '3px' : '4px');
+          star.style.width = size;
+          star.style.height = size;
+          container.appendChild(star);
+        }
+      })();
+    </script>
+  </body>
+</html>

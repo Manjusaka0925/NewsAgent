@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>新闻正文 - 闻新</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366f1'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-weight='800' font-size='14' fill='white'>闻</text></svg>" />
+  </head>
+  <body class="article-body">
+    <div class="bg-nebula"></div>
+    <div class="bg-stars" id="bgStars"></div>
+
+    <main class="article-page">
+      <div class="article-topbar">
+        <button class="btn-back" id="backBtn">
+          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          返回新闻浏览
+        </button>
+        <span class="article-reading-time" id="readingTime"></span>
+      </div>
+
+      <article class="article-card">
+        <div class="article-hero">
+          <div class="article-hero-icon">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          </div>
+        </div>
+
+        <div class="article-body-section">
+          <h1 class="article-title" id="articleTitle">新闻正文</h1>
+
+          <div class="article-meta">
+            <a id="sourceLink" class="article-source-link" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+              打开原文
+            </a>
+            <span class="article-lang-badge" id="langBadge">中文</span>
+          </div>
+
+          <div class="article-divider"></div>
+
+          <div id="articleContent" class="article-content">加载中...</div>
+        </div>
+      </article>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/assets/article.js"></script>
+    <script>
+      (function () {
+        const container = document.getElementById('bgStars');
+        const count = 60;
+        for (let i = 0; i < count; i++) {
+          const star = document.createElement('div');
+          star.className = 'star';
+          star.style.left = Math.random() * 100 + '%';
+          star.style.top = Math.random() * 100 + '%';
+          star.style.setProperty('--dur', (2 + Math.random() * 4) + 's');
+          star.style.setProperty('--delay', (Math.random() * 4) + 's');
+          const size = Math.random() < 0.7 ? '2px' : '3px';
+          star.style.width = size;
+          star.style.height = size;
+          container.appendChild(star);
+        }
+      })();
+    </script>
+  </body>
+</html>

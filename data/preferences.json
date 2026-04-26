@@ -1,0 +1,4 @@
+{
+  "news_feed_agent/news_source_preferences:user_preferences": "   \n\n- TechCrunch\n- The Verge\n- The Wall Street Journal\n- The New Yorker\n- The Atlantic\n- New York Times\n- The Economist\n- Associated Press\n- Forbes\n- Bloomberg\n- The Economist\n",
+  "news_feed_agent/content_preferences:user_preferences": "\n- Technology and innovation news\n- Business and finance developments\n- AI and machine learning advancements\n- Startup and venture capital news\n- Digital transformation trends\n- Economic policy and market analysis\n- Media and journalism industry insights\n"
+}
