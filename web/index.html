@@ -8,57 +8,99 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366f1'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-weight='800' font-size='14' fill='white'>闻</text></svg>" />
   </head>
   <body>
-    <div class="bg-nebula"></div>
-    <div class="bg-stars" id="bgStars"></div>
-
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <div class="brand-logo">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/>
-          </svg>
+    <!-- Auth Gate -->
+    <div class="auth-gate" id="authGate">
+      <div class="auth-gate-brand">
+        <div class="auth-gate-logo">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
         </div>
-        <div class="brand-text">
-          <h1>闻新</h1>
-          <p>AI 驱动的新闻探索</p>
-        </div>
+        <h1 class="auth-gate-title">闻新</h1>
+        <p class="auth-gate-subtitle">AI 驱动的新闻探索</p>
       </div>
 
-      <nav class="nav">
-        <span class="nav-section-label">导航</span>
-        <button class="nav-btn active" data-view="home">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-          开始探索
-        </button>
-        <button class="nav-btn" data-view="browse">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
-          新闻浏览
-        </button>
-        <button class="nav-btn" data-view="weather">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h.71C7.37 7.69 9.48 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z"/></svg>
-          天气导览
-        </button>
-        <button class="nav-btn" data-view="stock">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>
-          股市分析
-        </button>
-        <button class="nav-btn" data-view="chat">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-          AI 智能搜索
-        </button>
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="nav-divider"></div>
-        <div class="sidebar-meta">
-          <div class="status-dot"></div>
-          <span id="statusBox">系统就绪</span>
+      <div class="auth-gate-card" id="authGateCard">
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-auth-tab="login">登录</button>
+          <button class="auth-tab" data-auth-tab="register">注册</button>
         </div>
-        <p class="credit">Powered by AI &amp; LangGraph</p>
+        <form id="authForm" class="auth-form">
+          <div class="form-group">
+            <label>用户名</label>
+            <input type="text" id="authUsername" placeholder="3-50个字符" autocomplete="username" required />
+          </div>
+          <div class="form-group">
+            <label>密码</label>
+            <input type="password" id="authPassword" placeholder="至少6位" autocomplete="current-password" required />
+          </div>
+          <div class="form-group" id="confirmPwdGroup" style="display:none;">
+            <label>确认密码</label>
+            <input type="password" id="authConfirmPassword" placeholder="再次输入密码" autocomplete="new-password" />
+          </div>
+          <div class="form-error hidden" id="authError"></div>
+          <button type="submit" class="btn btn-primary btn-full" id="authSubmitBtn">登录</button>
+        </form>
       </div>
-    </aside>
 
-    <main class="main">
+      <p class="auth-gate-hint">登录后可同步收藏、点赞和浏览历史</p>
+    </div>
+
+    <!-- App Shell (hidden until authenticated) -->
+    <div class="app-shell" id="appShell">
+      <div class="bg-nebula"></div>
+      <div class="bg-stars" id="bgStars"></div>
+
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <div class="brand-logo">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1>闻新</h1>
+            <p>AI 驱动的新闻探索</p>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <span class="nav-section-label">导航</span>
+          <button class="nav-btn active" data-view="home">
+            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            开始探索
+          </button>
+          <button class="nav-btn" data-view="browse">
+            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+            新闻浏览
+          </button>
+          <button class="nav-btn" data-view="weather">
+            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h.71C7.37 7.69 9.48 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z"/></svg>
+            天气导览
+          </button>
+          <button class="nav-btn" data-view="stock">
+            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>
+            股市分析
+          </button>
+          <button class="nav-btn" data-view="chat">
+            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+            AI 智能搜索
+          </button>
+          <button class="nav-btn" data-view="profile">
+            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            个人中心
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="nav-divider"></div>
+          <div class="sidebar-meta">
+            <div class="status-dot"></div>
+            <span id="statusBox">系统就绪</span>
+          </div>
+          <p class="credit">Powered by AI &amp; LangGraph</p>
+        </div>
+      </aside>
+
+      <main class="main">
       <!-- Home / Hero View -->
       <section class="view view-home active" id="view-home">
         <div class="hero-card">
@@ -117,6 +159,18 @@
 
         <div class="news-stream-wrapper">
           <div class="news-stream" id="newsStream"></div>
+          <!-- Floating action buttons -->
+          <div class="floating-actions" id="floatingActions">
+            <button class="floating-action-btn" id="favLikeBtn" data-action="like" title="点赞">
+              <svg viewBox="0 0 24 24"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
+            </button>
+            <button class="floating-action-btn" id="favFavBtn" data-action="favorite" title="收藏">
+              <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+            </button>
+            <button class="floating-action-btn" id="favNotBtn" data-action="not-interested" title="不感兴趣">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"/></svg>
+            </button>
+          </div>
           <button id="nextNewsBtn" class="floating-next" aria-label="下一条新闻">
             <svg viewBox="0 0 24 24"><path d="M12 16l-6-6 1.41-1.41L12 13.17l4.59-4.58L18 10z"/></svg>
           </button>
@@ -205,7 +259,86 @@
           </button>
         </form>
       </section>
+
+      <!-- Profile / Personal Center View -->
+      <section class="view view-profile" id="view-profile">
+        <div class="profile-container">
+          <div class="profile-header">
+            <div class="profile-avatar">
+              <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            </div>
+            <div class="profile-info">
+              <h2 id="profileUsername">未登录</h2>
+              <p id="profileJoined"></p>
+            </div>
+            <button class="btn btn-ghost" id="logoutBtn">退出登录</button>
+            <button class="btn btn-ghost" id="changePwdBtn">
+              <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+              修改密码
+            </button>
+          </div>
+
+          <!-- Change Password Panel (hidden by default) -->
+          <div class="profile-section hidden" id="changePwdSection">
+            <h3>
+              <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+              修改密码
+            </h3>
+            <form id="changePwdForm" class="change-pwd-form">
+              <div class="form-group">
+                <label>当前密码</label>
+                <input type="password" id="oldPassword" autocomplete="current-password" required />
+              </div>
+              <div class="form-group">
+                <label>新密码</label>
+                <input type="password" id="newPassword" placeholder="至少6位" autocomplete="new-password" required />
+              </div>
+              <div class="form-group">
+                <label>确认新密码</label>
+                <input type="password" id="confirmNewPassword" placeholder="再次输入新密码" autocomplete="new-password" required />
+              </div>
+              <div class="form-error hidden" id="changePwdError"></div>
+              <button type="submit" class="btn btn-primary">确认修改</button>
+              <button type="button" class="btn btn-ghost" id="cancelChangePwdBtn">取消</button>
+            </form>
+          </div>
+
+          <!-- 3-column: Liked / Favorited / History -->
+          <div class="profile-three-cols">
+            <!-- Liked Articles -->
+            <div class="profile-section">
+              <h3>
+                <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                我点赞的文章
+              </h3>
+              <div class="profile-article-list" id="likedArticleList"></div>
+              <button class="btn btn-ghost load-more-btn" id="loadMoreLiked" style="display:none;width:100%;justify-content:center;">查看全部</button>
+            </div>
+
+            <!-- Favorited Articles -->
+            <div class="profile-section">
+              <h3>
+                <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+                我收藏的文章
+              </h3>
+              <div class="profile-article-list" id="favoritedArticleList"></div>
+              <button class="btn btn-ghost load-more-btn" id="loadMoreFavorited" style="display:none;width:100%;justify-content:center;">查看全部</button>
+            </div>
+
+            <!-- View History -->
+            <div class="profile-section">
+              <h3>
+                <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                浏览历史
+              </h3>
+              <div class="profile-article-list" id="historyArticleList"></div>
+              <button class="btn btn-ghost load-more-btn" id="loadMoreHistory" style="display:none;width:100%;justify-content:center;">查看全部</button>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
+    </div><!-- /app-shell -->
 
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>

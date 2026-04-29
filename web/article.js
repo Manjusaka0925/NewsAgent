@@ -7,6 +7,26 @@ const sourceNode = document.getElementById("sourceLink");
 const backBtn = document.getElementById("backBtn");
 const readingTimeNode = document.getElementById("readingTime");
 const langBadgeNode = document.getElementById("langBadge");
+const likeBtn = document.getElementById("articleLikeBtn");
+const favoriteBtn = document.getElementById("articleFavoriteBtn");
+
+const AUTH_TOKEN_KEY = "newsAgent.token";
+const currentToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
+
+function apiFetch(path, options = {}) {
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  if (currentToken) headers["Authorization"] = `Bearer ${currentToken}`;
+  return fetch(path, { ...options, headers });
+}
+
+function getArticleState() {
+  return JSON.parse(sessionStorage.getItem(`newsAgent.article_${btoa(url)}`) || "{}");
+}
+function setArticleState(key, val) {
+  const s = getArticleState();
+  s[key] = val;
+  sessionStorage.setItem(`newsAgent.article_${btoa(url)}`, JSON.stringify(s));
+}
 
 backBtn.addEventListener("click", () => {
   window.location.href = "/?view=browse";
@@ -17,6 +37,36 @@ function estimateReadingTime(text) {
   const minutes = Math.ceil(words / 400);
   return minutes < 1 ? "不到 1 分钟" : `约 ${minutes} 分钟`;
 }
+
+function applyArticleState() {
+  const s = getArticleState();
+  if (s.like) likeBtn.classList.add("active-like");
+  if (s.favorite) favoriteBtn.classList.add("active-favorite");
+}
+
+likeBtn.addEventListener("click", () => {
+  if (!currentToken) { sessionStorage.setItem("newsAgent.pendingAuth", url); return; }
+  const s = getArticleState();
+  const newVal = !s.like;
+  setArticleState("like", newVal);
+  likeBtn.classList.toggle("active-like", newVal);
+  apiFetch("/api/article/action", {
+    method: "POST",
+    body: JSON.stringify({ url, action: "like" }),
+  }).catch(() => {});
+});
+
+favoriteBtn.addEventListener("click", () => {
+  if (!currentToken) { sessionStorage.setItem("newsAgent.pendingAuth", url); return; }
+  const s = getArticleState();
+  const newVal = !s.favorite;
+  setArticleState("favorite", newVal);
+  favoriteBtn.classList.toggle("active-favorite", newVal);
+  apiFetch("/api/article/action", {
+    method: "POST",
+    body: JSON.stringify({ url, action: "favorite" }),
+  }).catch(() => {});
+});
 
 if (!url) {
   titleNode.textContent = "缺少新闻链接";
@@ -31,40 +81,47 @@ if (!url) {
     打开原文
   `;
 
-  // Show loading skeleton
-  contentNode.innerHTML = `
-    <div class="skeleton" style="height:24px;width:70%;margin-bottom:16px"></div>
-    <div class="skeleton" style="height:16px;width:100%;margin-bottom:8px"></div>
-    <div class="skeleton" style="height:16px;width:90%;margin-bottom:8px"></div>
-    <div class="skeleton" style="height:16px;width:95%;margin-bottom:8px"></div>
-    <div class="skeleton" style="height:16px;width:80%;margin-bottom:24px"></div>
-    <div class="skeleton" style="height:16px;width:100%;margin-bottom:8px"></div>
-    <div class="skeleton" style="height:16px;width:85%;margin-bottom:8px"></div>
-    <div class="skeleton" style="height:16px;width:92%;margin-bottom:8px"></div>
-  `;
+  // Record view
+  if (currentToken) {
+    apiFetch("/api/article/view", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    }).catch(() => {});
+  }
 
-  fetch(`/api/news/detail?url=${encodeURIComponent(url)}`)
-    .then((resp) => {
-      if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status}`);
+  // Fetch article content and DB action state in parallel
+  Promise.all([
+    fetch(`/api/news/detail?url=${encodeURIComponent(url)}`).then(r => r.json()),
+    currentToken
+      ? apiFetch(`/api/article/actions/by-url?url=${encodeURIComponent(url)}`).then(r => r.ok ? r.json() : {})
+      : Promise.resolve({}),
+  ])
+    .then(([articleData, actionData]) => {
+      // Apply DB state as primary source, then overlay sessionStorage for optimistic UX
+      const dbLike = !!actionData.like;
+      const dbFav = !!actionData.favorite;
+      if (!dbLike) likeBtn.classList.toggle("active-like", !!getArticleState().like);
+      else likeBtn.classList.toggle("active-like", dbLike);
+      if (!dbFav) favoriteBtn.classList.toggle("active-favorite", !!getArticleState().favorite);
+      else favoriteBtn.classList.toggle("active-favorite", dbFav);
+      if (dbLike || dbFav) {
+        setArticleState("like", dbLike);
+        setArticleState("favorite", dbFav);
       }
-      return resp.json();
-    })
-    .then((data) => {
-      const text = data.content || "未提取到正文内容";
 
+      const text = articleData.content || "未提取到正文内容";
       if (window.marked?.parse) {
         contentNode.innerHTML = window.marked.parse(text);
       } else {
         contentNode.textContent = text;
       }
-
-      // Estimate reading time
       if (readingTimeNode) {
         readingTimeNode.textContent = `预计阅读 ${estimateReadingTime(text)}`;
       }
     })
     .catch((err) => {
+      // Fallback: try sessionStorage state and show error
+      applyArticleState();
       contentNode.innerHTML = `
         <div style="text-align:center;padding:40px 0;color:var(--text-3)">
           <div style="font-size:2rem;margin-bottom:12px">

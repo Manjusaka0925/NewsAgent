@@ -4,6 +4,7 @@ const views = {
   weather: document.getElementById("view-weather"),
   stock: document.getElementById("view-stock"),
   chat: document.getElementById("view-chat"),
+  profile: document.getElementById("view-profile"),
 };
 
 const navButtons = document.querySelectorAll(".nav-btn");
@@ -965,7 +966,7 @@ function switchView(target) {
       renderSingleNews(cached);
       newsCount = 1;
       historyIndex = 0;
-      newsHistory = [getCardSnapshot(newsStream.querySelector(".news-card"))];
+      newsHistory = [getCardSnapshot(newsStream.querySelector(".news-card"), cached.link)];
       saveNewsState();
       setStatus("已恢复上次浏览新闻");
       return;
@@ -1061,13 +1062,6 @@ function renderSingleNews(payload) {
   const dateStr = formatDate();
   const indexStr = newsCount > 0 ? `第 ${newsCount} 条` : `今日推荐`;
 
-  const linkHtml = parsed.link
-    ? `<a class="news-link" href="${parsed.link}" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
-        原文链接
-       </a>`
-    : "";
-
   newsStream.innerHTML = `
     <article class="news-card">
       <div class="news-card-meta">
@@ -1088,7 +1082,8 @@ function renderSingleNews(payload) {
         <p class="news-summary">${parsed.enSummary}</p>
       </section>
       <div class="news-footer">
-        ${linkHtml}
+        <div class="news-actions">
+        </div>
         <span class="news-index-badge">点击卡片阅读全文</span>
       </div>
     </article>
@@ -1102,6 +1097,8 @@ function renderSingleNews(payload) {
       window.location.href = `/article?url=${encodeURIComponent(parsed.link)}`;
     });
   }
+
+  updateFloatingButtons(parsed.link, parsed.zhTitle, parsed.enTitle, parsed.zhSummary, parsed.enSummary);
 
   newsStream.scrollTop = 0;
 }
@@ -1143,7 +1140,7 @@ async function loadNextNews() {
 
     const card = newsStream.querySelector(".news-card");
     if (card) {
-      const snapshot = getCardSnapshot(card);
+      const snapshot = getCardSnapshot(card, data.link);
       if (historyIndex < newsHistory.length - 1) {
         newsHistory = newsHistory.slice(0, historyIndex + 1);
       }
@@ -1180,13 +1177,13 @@ async function loadNextNews() {
   }
 }
 
-function getCardSnapshot(card) {
+function getCardSnapshot(card, link) {
   return {
     title_zh: card.querySelector(".news-lang-section:nth-child(2) .news-title")?.textContent || "",
     summary_zh: card.querySelector(".news-lang-section:nth-child(2) .news-summary")?.textContent || "",
     title_en: card.querySelector(".news-lang-section:nth-child(3) .news-title")?.textContent || "",
     summary_en: card.querySelector(".news-lang-section:nth-child(3) .news-summary")?.textContent || "",
-    link: card.querySelector("a.news-link")?.href || "",
+    link: link || "",
   };
 }
 
@@ -1213,14 +1210,8 @@ function renderFromSnapshot(snapshot, index) {
         <p class="news-summary">${snapshot.summary_en}</p>
       </section>
       <div class="news-footer">
-        ${
-          snapshot.link
-            ? `<a class="news-link" href="${snapshot.link}" target="_blank" rel="noopener">
-                <svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
-                原文链接
-               </a>`
-            : ""
-        }
+        <div class="news-actions">
+        </div>
         <span class="news-index-badge">点击卡片阅读全文</span>
       </div>
     </article>
@@ -1234,6 +1225,8 @@ function renderFromSnapshot(snapshot, index) {
       window.location.href = `/article?url=${encodeURIComponent(snapshot.link)}`;
     });
   }
+
+  updateFloatingButtons(snapshot.link || "", snapshot.title_zh, snapshot.title_en, snapshot.summary_zh, snapshot.summary_en);
 
   newsStream.scrollTop = 0;
 }
@@ -1349,27 +1342,441 @@ addChatMessage(
   "欢迎使用 **闻新**！\n\n你可以直接提问，例如：\n- 请给我今天值得看的科技和商业新闻\n- 最近有哪些 AI 领域的重大投资？\n- 帮我找找关于新能源汽车的最新动态"
 );
 
-/* ── URL view param ─────────────────────────────────────────── */
-const initialView = new URLSearchParams(window.location.search).get("view");
-const savedView = (() => {
-  try { return sessionStorage.getItem(LAST_VIEW_KEY); } catch (_) { return null; }
-})();
-const targetView = initialView || savedView || "home";
+// ── Auth ─────────────────────────────────────────────────────────────────────
 
-if (targetView === "browse") {
-  const stateRestored = restoreNewsState();
-  switchView("browse");
-  if (stateRestored && newsHistory.length > 0) {
-    renderFromSnapshot(newsHistory[historyIndex], historyIndex);
-    setStatus(`已恢复新闻浏览状态（${historyIndex + 1} / ${newsHistory.length}）`);
-  }
-} else if (targetView === "weather") {
-  switchView("weather");
-} else if (targetView === "stock") {
-  switchView("stock");
-} else if (targetView === "chat") {
-  switchView("chat");
-} else {
-  switchView("home");
-  setStatus("点击开始进入新闻浏览");
+const AUTH_TOKEN_KEY = "newsAgent.token";
+const AUTH_USER_KEY = "newsAgent.user";
+
+let currentUser = JSON.parse(sessionStorage.getItem(AUTH_USER_KEY) || "null");
+let currentToken = sessionStorage.getItem(AUTH_TOKEN_KEY) || null;
+
+function apiFetch(url, options = {}) {
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  if (currentToken) headers["Authorization"] = `Bearer ${currentToken}`;
+  return fetch(url, { ...options, headers });
 }
+
+function showAuthGate() {
+  const gate = document.getElementById("authGate");
+  const shell = document.getElementById("appShell");
+  if (gate) gate.style.display = "flex";
+  if (shell) shell.style.visibility = "hidden";
+}
+
+function hideAuthGate() {
+  const gate = document.getElementById("authGate");
+  const shell = document.getElementById("appShell");
+  if (gate) gate.style.display = "none";
+  if (shell) shell.style.visibility = "visible";
+}
+
+function updateAuthUI() {
+  const logoutBtn = document.getElementById("logoutBtn");
+  const profileUsername = document.getElementById("profileUsername");
+  const profileJoined = document.getElementById("profileJoined");
+  const changePwdSection = document.getElementById("changePwdSection");
+
+  if (currentUser) {
+    hideAuthGate();
+    logoutBtn.style.display = "block";
+    profileUsername.textContent = currentUser.username;
+    profileJoined.textContent = `UID: ${currentUser.userId}`;
+    changePwdSection.style.display = "block";
+  } else {
+    showAuthGate();
+    logoutBtn.style.display = "none";
+    profileUsername.textContent = "未登录";
+    profileJoined.textContent = "登录后可同步收藏、点赞和偏好";
+    changePwdSection.style.display = "none";
+  }
+}
+
+// Auth gate elements
+let authMode = "login";
+const authTabs = document.querySelectorAll(".auth-tab");
+const authForm = document.getElementById("authForm");
+const authError = document.getElementById("authError");
+const authSubmitBtn = document.getElementById("authSubmitBtn");
+const confirmPwdGroup = document.getElementById("confirmPwdGroup");
+const logoutBtn = document.getElementById("logoutBtn");
+
+function setAuthMode(mode) {
+  authMode = mode;
+  authTabs.forEach(t => t.classList.toggle("active", t.dataset.authTab === mode));
+  authSubmitBtn.textContent = mode === "login" ? "登录" : "注册";
+  confirmPwdGroup.style.display = mode === "register" ? "flex" : "none";
+  authError.classList.add("hidden");
+  authForm.reset();
+}
+
+authTabs.forEach(tab => {
+  tab.addEventListener("click", () => setAuthMode(tab.dataset.authTab));
+});
+
+authForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  authError.classList.add("hidden");
+  authSubmitBtn.disabled = true;
+  authSubmitBtn.textContent = "处理中...";
+
+  const username = document.getElementById("authUsername").value.trim();
+  const password = document.getElementById("authPassword").value;
+  const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+
+  if (authMode === "register") {
+    const confirm = document.getElementById("authConfirmPassword").value;
+    if (password !== confirm) {
+      authError.textContent = "两次密码输入不一致";
+      authError.classList.remove("hidden");
+      authSubmitBtn.disabled = false;
+      authSubmitBtn.textContent = "注册";
+      return;
+    }
+  }
+
+  try {
+    const resp = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      authError.textContent = data.detail || "操作失败";
+      authError.classList.remove("hidden");
+    } else {
+      currentToken = data.token;
+      currentUser = { username: data.username, userId: data.userId };
+      sessionStorage.setItem(AUTH_TOKEN_KEY, currentToken);
+      sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(currentUser));
+      updateAuthUI();
+      setStatus(authMode === "login" ? `欢迎回来，${data.username}！` : `注册成功，已登录`);
+    }
+  } catch {
+    authError.textContent = "网络错误，请重试";
+    authError.classList.remove("hidden");
+  }
+  authSubmitBtn.disabled = false;
+  authSubmitBtn.textContent = authMode === "login" ? "登录" : "注册";
+});
+
+logoutBtn?.addEventListener("click", () => {
+  currentToken = null;
+  currentUser = null;
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  sessionStorage.removeItem(AUTH_USER_KEY);
+  updateAuthUI();
+  setStatus("已退出登录");
+});
+
+// Change password
+const changePwdBtn = document.getElementById("changePwdBtn");
+const changePwdSection = document.getElementById("changePwdSection");
+const cancelChangePwdBtn = document.getElementById("cancelChangePwdBtn");
+
+changePwdBtn?.addEventListener("click", () => {
+  changePwdSection?.classList.toggle("hidden");
+});
+cancelChangePwdBtn?.addEventListener("click", () => {
+  changePwdSection?.classList.add("hidden");
+});
+
+document.getElementById("changePwdForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("changePwdError");
+  const oldPwd = document.getElementById("oldPassword").value;
+  const newPwd = document.getElementById("newPassword").value;
+  const confirmPwd = document.getElementById("confirmNewPassword").value;
+  errEl.classList.add("hidden");
+
+  if (newPwd.length < 6) {
+    errEl.textContent = "新密码至少6位"; errEl.classList.remove("hidden"); return;
+  }
+  if (newPwd !== confirmPwd) {
+    errEl.textContent = "两次新密码输入不一致"; errEl.classList.remove("hidden"); return;
+  }
+
+  const resp = await apiFetch("/api/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ old_password: oldPwd, new_password: newPwd }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) {
+    errEl.textContent = data.detail || "修改失败"; errEl.classList.remove("hidden");
+  } else {
+    e.target.reset();
+    errEl.textContent = "密码修改成功！";
+    errEl.style.color = "var(--green)";
+    errEl.classList.remove("hidden");
+    setTimeout(() => { errEl.classList.add("hidden"); errEl.style.color = ""; }, 3000);
+    setStatus("密码修改成功");
+  }
+});
+
+// ── Article Actions ──────────────────────────────────────────────────────────
+
+// Floating action buttons - event delegation avoids closure/capture bugs during fast navigation
+const floatingLikeBtn  = document.getElementById("favLikeBtn");
+const floatingFavBtn   = document.getElementById("favFavBtn");
+const floatingNotBtn  = document.getElementById("favNotBtn");
+
+const FLOATING_ACTIONS_ID = "floatingActions";
+
+function getCurrentActionUrl() {
+  const entry = newsHistory[historyIndex];
+  return entry?.link || "";
+}
+
+function getCurrentActionTitles() {
+  const entry = newsHistory[historyIndex];
+  return {
+    zh: entry?.title_zh || "",
+    en: entry?.title_en || "",
+    zhSummary: entry?.summary_zh || "",
+    enSummary: entry?.summary_en || "",
+  };
+}
+
+function refreshFloatingButtonsState() {
+  const url = getCurrentActionUrl();
+  if (!url) return;
+  const state = resolveActionState(url);
+  [floatingLikeBtn, floatingFavBtn, floatingNotBtn].forEach(btn => {
+    const action = btn.dataset.action;
+    btn.classList.toggle(`active-${action}`, !!state[action]);
+  });
+}
+
+// One-time delegation: register once at init, never overwritten
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("#floatingActions .floating-action-btn");
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const url = getCurrentActionUrl();
+  if (!url) return;
+
+  // Use const so the closure captures the VALUE at click time, not a variable reference
+  const titles = getCurrentActionTitles();
+
+  const currentState = resolveActionState(url);
+  const newVal = !currentState[action];
+  setActionState(url, action, newVal);
+  if (window._actionStateCache[url] !== undefined) {
+    window._actionStateCache[url][action] = newVal;
+  }
+  btn.classList.toggle(`active-${action}`, newVal);
+  btn.classList.add("action-pop");
+  setTimeout(() => btn.classList.remove("action-pop"), 300);
+
+  if (action === "not-interested" && newVal) {
+    loadNextNews();
+  } else {
+    doArticleAction(url, action, titles.zh, titles.en, titles.zhSummary, titles.enSummary);
+  }
+});
+
+// Per-URL action cache fetched from DB (url -> { like, favorite, not_interested })
+// This cache bridges DB -> in-memory during a session to avoid repeated API calls.
+// Always falls back to sessionStorage if the URL is not in cache.
+window._actionStateCache = {};
+
+function resolveActionState(url) {
+  const dbCache = window._actionStateCache[url];
+  if (dbCache !== undefined) return dbCache;
+  return getActionState(url);
+}
+
+async function fetchActionState(url) {
+  if (!currentToken) return;
+  if (window._actionStateCache[url] !== undefined) return;
+  try {
+    const resp = await apiFetch(`/api/article/actions/by-url?url=${encodeURIComponent(url)}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      const merged = {
+        like: !!data.like,
+        favorite: !!data.favorite,
+        not_interested: !!data.not_interested,
+      };
+      const local = getActionState(url);
+      if (local.like) merged.like = true;
+      if (local.favorite) merged.favorite = true;
+      if (local.not_interested) merged.not_interested = true;
+      window._actionStateCache[url] = merged;
+      if (url === getCurrentActionUrl()) {
+        refreshFloatingButtonsState();
+      }
+    }
+  } catch (_) {}
+}
+
+function updateFloatingButtons(url, titleZh, titleEn, zhSummary, enSummary) {
+  if (currentToken && url) {
+    fetchActionState(url);
+  }
+  refreshFloatingButtonsState();
+}
+
+async function doArticleAction(url, action, titleZh, titleEn, summaryZh, summaryEn) {
+  if (!currentToken) {
+    showAuthGate();
+    return;
+  }
+  try {
+    const resp = await apiFetch("/api/article/action", {
+      method: "POST",
+      body: JSON.stringify({ url, action, title_zh: titleZh, title_en: titleEn, summary_zh: summaryZh, summary_en: summaryEn }),
+    });
+    if (resp.ok) {
+      const labels = { like: "已点赞", favorite: "已收藏", "not-interested": "已标记" };
+      setStatus(labels[action] || "操作成功");
+    }
+  } catch (_) {}
+}
+
+function getActionState(url) {
+  return JSON.parse(sessionStorage.getItem(`newsAgent.action_${encodeURIComponent(url)}`) || "{}");
+}
+
+function setActionState(url, key, val) {
+  const s = getActionState(url);
+  s[key] = val;
+  sessionStorage.setItem(`newsAgent.action_${encodeURIComponent(url)}`, JSON.stringify(s));
+}
+
+function updateActionButtons(url) {
+  const state = getActionState(url);
+  document.querySelectorAll(`[data-action-url="${CSS.escape(url)}"]`).forEach(btn => {
+    const a = btn.dataset.action;
+    btn.classList.toggle(`active-${a}`, !!state[a]);
+  });
+}
+
+// ── Profile / Personal Center ───────────────────────────────────────────────
+
+let profileOffsets = { liked: 0, favorited: 0, history: 0 };
+const PROFILE_LIMIT = 20;
+
+function renderArticleItem(article) {
+  const date = new Date(article.created_at).toLocaleDateString("zh-CN");
+  const title = article.title_zh || article.title_en || "未命名";
+  const labelMap = { like: "已赞", favorite: "已收藏", viewed: "" };
+  const label = labelMap[article.action] || "";
+  return `
+    <a class="profile-article-item" href="${article.url}" target="_blank" rel="noopener">
+      <div style="flex:1;min-width:0;">
+        <div class="profile-article-meta">
+          ${label ? `<span class="profile-article-badge">${label}</span>` : ""}
+          <span class="profile-article-date">${date}</span>
+        </div>
+        <div class="profile-article-title">${title}</div>
+      </div>
+      <svg viewBox="0 0 24 24" style="width:16px;height:16px;flex-shrink:0;color:var(--text-3);fill:currentColor;align-self:center;">
+        <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+      </svg>
+    </a>`;
+}
+
+async function loadArticleList(type, offset, limit) {
+  if (!currentToken) {
+    return { articles: [], hasMore: false };
+  }
+  try {
+    const resp = await apiFetch(`/api/article/actions?action=${type}&limit=${limit}&offset=${offset}`);
+    if (!resp.ok) return { articles: [], hasMore: false };
+    const data = await resp.json();
+    return { articles: data.articles || [], hasMore: !!data.has_more };
+  } catch (_) {
+    return { articles: [], hasMore: false };
+  }
+}
+
+async function loadProfileData() {
+  if (!currentUser) {
+    ["likedArticleList", "favoritedArticleList", "historyArticleList"].forEach(id => {
+      document.getElementById(id).innerHTML = `<div class="profile-empty">登录后可查看记录</div>`;
+    });
+    document.getElementById("loadMoreLiked").style.display = "none";
+    document.getElementById("loadMoreFavorited").style.display = "none";
+    document.getElementById("loadMoreHistory").style.display = "none";
+    return;
+  }
+
+  profileOffsets = { liked: 0, favorited: 0, history: 0 };
+
+  const [likedData, favData, histData] = await Promise.all([
+    loadArticleList("like", 0, 1),
+    loadArticleList("favorite", 0, 1),
+    loadArticleList("history", 0, PROFILE_LIMIT),
+  ]);
+
+  renderArticleSection("likedArticleList", likedData, "liked");
+  renderArticleSection("favoritedArticleList", favData, "favorited");
+  renderArticleSection("historyArticleList", histData, "history");
+}
+
+function renderArticleSection(listId, data, type) {
+  const list = document.getElementById(listId);
+  const moreBtn = document.getElementById(`loadMore${type.charAt(0).toUpperCase() + type.slice(1)}`);
+  if (!data.articles.length) {
+    list.innerHTML = `<div class="profile-empty">暂无记录</div>`;
+    moreBtn.style.display = "none";
+    return;
+  }
+  list.innerHTML = data.articles.map(renderArticleItem).join("");
+  moreBtn.style.display = data.hasMore ? "block" : "none";
+  moreBtn.onclick = async () => {
+    const apiType = type === "liked" ? "like" : type === "favorited" ? "favorite" : type;
+    profileOffsets[type] += 1;
+    const next = await loadArticleList(apiType, profileOffsets[type], PROFILE_LIMIT);
+    list.insertAdjacentHTML("beforeend", next.articles.map(renderArticleItem).join(""));
+    moreBtn.style.display = next.hasMore ? "block" : "none";
+  };
+}
+
+// Load profile on view switch
+const originalSwitchView = switchView;
+switchView = function(name) {
+  originalSwitchView(name);
+  if (name === "profile") loadProfileData();
+};
+
+// ── Init ───────────────────────────────────────────────────────────────────
+
+function initApp() {
+  updateAuthUI();
+
+  if (!currentUser) {
+    showAuthGate();
+    return;
+  }
+
+  // Restore saved view state
+  const initialView = new URLSearchParams(window.location.search).get("view");
+  const savedView = (() => {
+    try { return sessionStorage.getItem(LAST_VIEW_KEY); } catch (_) { return null; }
+  })();
+  const targetView = initialView || savedView || "home";
+
+  if (targetView === "browse") {
+    const stateRestored = restoreNewsState();
+    switchView("browse");
+    if (stateRestored && newsHistory.length > 0) {
+      renderFromSnapshot(newsHistory[historyIndex], historyIndex);
+      setStatus(`已恢复新闻浏览状态（${historyIndex + 1} / ${newsHistory.length}）`);
+    }
+  } else if (targetView === "weather") {
+    switchView("weather");
+  } else if (targetView === "stock") {
+    switchView("stock");
+  } else if (targetView === "chat") {
+    switchView("chat");
+  } else if (targetView === "profile") {
+    switchView("profile");
+    loadProfileData();
+  } else {
+    switchView("home");
+  }
+}
+
+initApp();

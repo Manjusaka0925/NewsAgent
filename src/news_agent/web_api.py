@@ -13,14 +13,31 @@ from urllib.parse import unquote, urlparse
 import httpx
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from pydantic import BaseModel
 
+from news_agent.database import (
+    create_token,
+    create_user,
+    count_user_actions,
+    decode_token,
+    get_or_create_article,
+    get_session,
+    get_user_actions,
+    get_user_article_actions,
+    get_user_by_username,
+    hash_password,
+    init_db,
+    set_article_action,
+    verify_password,
+)
+from news_agent.models import ActionType, User, UserPreference
 from news_agent.news_agent import (
     default_content_preferences,
     default_news_source_preferences,
@@ -107,7 +124,7 @@ TOOLS_BY_NAME = {tool.name: tool for tool in TOOLS}
 NEWS_CACHE: deque[Dict[str, str]] = deque()
 NEWS_CACHE_LOCK = threading.Lock()
 NEWS_CACHE_REFILLING = False
-NEWS_CACHE_TARGET = 5
+NEWS_CACHE_TARGET = 3
 
 NEWS_PUSH_PROMPTS = [
     "请推送今天一条重要新闻，只要一条。",
@@ -125,6 +142,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    init_db()
+    _trigger_news_prefetch()
+
+
+if WEB_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
 
 
 def _build_llm(temperature: float = 0.2) -> ChatOpenAI:
@@ -378,9 +405,7 @@ def _trigger_news_prefetch() -> None:
     thread.start()
 
 
-@app.on_event("startup")
-def prefill_news_cache() -> None:
-    _trigger_news_prefetch()
+_trigger_news_prefetch()
 
 
 def _learn_from_interaction(user_text: str, assistant_text: str) -> None:
@@ -830,8 +855,216 @@ def get_stock_history(symbol: str = "") -> Dict[str, Any]:
         return {"symbol": sym, "history": [], "error": f"获取历史数据失败: {exc}"}
 
 
-if WEB_DIR.exists():
-    app.mount("/assets", StaticFiles(directory=WEB_DIR), name="assets")
+# ── Auth helpers ───────────────────────────────────────────────
+
+def get_user_from_header(authorization: str = Header(None)) -> Optional[dict]:
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    return decode_token(authorization[7:])
+
+
+def require_auth(authorization: str = Header(None)) -> dict:
+    user = get_user_from_header(authorization)
+    if user is None:
+        raise HTTPException(status_code=401, detail="请先登录")
+    return user
+
+
+# ── Auth endpoints ─────────────────────────────────────────────
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@app.post("/api/auth/register")
+def register(req: RegisterRequest) -> Dict[str, Any]:
+    username = req.username.strip()
+    password = req.password
+    if len(username) < 3 or len(username) > 50:
+        raise HTTPException(status_code=400, detail="用户名需3-50个字符")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="密码至少6位")
+    if get_user_by_username(username):
+        raise HTTPException(status_code=409, detail="用户名已存在")
+    user_id, username = create_user(username, password)
+    token = create_token(user_id, username)
+    return {"token": token, "username": username, "userId": user_id}
+
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest) -> Dict[str, Any]:
+    user = get_user_by_username(req.username.strip())
+    if not user or not verify_password(req.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+    token = create_token(user.id, user.username)
+    return {"token": token, "username": user.username, "userId": user.id}
+
+
+@app.post("/api/auth/logout")
+def logout(authorization: str = Header(None)) -> Dict[str, str]:
+    return {"message": "ok"}
+
+
+@app.get("/api/auth/me")
+def me(authorization: str = Header(None)) -> Dict[str, Any]:
+    user_data = require_auth(authorization)
+    return {"userId": int(user_data["sub"]), "username": user_data["username"]}
+
+
+@app.post("/api/auth/change-password")
+def change_password(req: ChangePasswordRequest, authorization: str = Header(None)) -> Dict[str, str]:
+    user_data = require_auth(authorization)
+    with get_session() as db:
+        user = db.get(User, int(user_data["sub"]))
+        if not user or not verify_password(req.old_password, user.password_hash):
+            raise HTTPException(status_code=400, detail="原密码错误")
+        user.password_hash = hash_password(req.new_password)
+        db.commit()
+    return {"message": "密码修改成功"}
+
+
+# ── Article action endpoints ────────────────────────────────────
+
+class ArticleActionRequest(BaseModel):
+    url: str
+    action: str
+    title_zh: str = ""
+    title_en: str = ""
+    summary_zh: str = ""
+    summary_en: str = ""
+
+
+@app.post("/api/article/action")
+def article_action(req: ArticleActionRequest, authorization: str = Header(None)) -> Dict[str, Any]:
+    user_data = require_auth(authorization)
+    action_map = {"like": ActionType.like, "favorite": ActionType.favorite, "not_interested": ActionType.not_interested}
+    action = action_map.get(req.action)
+    if action is None:
+        raise HTTPException(status_code=400, detail="无效的操作类型")
+
+    with get_session() as db:
+        set_article_action(db, int(user_data["sub"]), req.url, action,
+                          req.title_zh, req.title_en, req.summary_zh, req.summary_en)
+    return {"action": req.action}
+
+
+@app.get("/api/article/actions")
+def get_article_actions(
+    action: str = Query(...),
+    limit: int = Query(50),
+    offset: int = Query(0),
+    authorization: str = Header(None),
+) -> Dict[str, Any]:
+    user_data = require_auth(authorization)
+    action_map = {"like": ActionType.like, "liked": ActionType.like,
+                  "favorite": ActionType.favorite, "favorited": ActionType.favorite,
+                  "history": ActionType.viewed}
+    act = action_map.get(action)
+    if act is None:
+        raise HTTPException(status_code=400, detail="无效的操作类型")
+
+    with get_session() as db:
+        total = count_user_actions(db, int(user_data["sub"]), act)
+        actions = get_user_actions(db, int(user_data["sub"]), act, limit, offset)
+        articles = []
+        for a in actions:
+            articles.append({
+                "url": a.article.url,
+                "title_zh": a.article.title_zh or "未命名",
+                "title_en": a.article.title_en or "",
+                "summary_zh": a.article.summary_zh or "",
+                "summary_en": a.article.summary_en or "",
+                "action": a.action.value,
+                "created_at": a.created_at.isoformat(),
+            })
+        return {"articles": articles, "has_more": (offset + len(articles)) < total}
+
+
+@app.post("/api/article/view")
+def record_view(req: ArticleActionRequest, authorization: str = Header(None)) -> Dict[str, str]:
+    user_data = get_user_from_header(authorization)
+    if user_data is None:
+        return {"message": "ok"}
+    with get_session() as db:
+        set_article_action(db, int(user_data["sub"]), req.url, ActionType.viewed,
+                          req.title_zh, req.title_en, req.summary_zh, req.summary_en)
+    return {"message": "ok"}
+
+
+@app.get("/api/article/actions/by-url")
+def get_article_actions_by_url(
+    url: str = Query(...),
+    authorization: str = Header(None),
+) -> Dict[str, Any]:
+    user_data = get_user_from_header(authorization)
+    if user_data is None:
+        return {"like": False, "favorite": False, "not_interested": False}
+    with get_session() as db:
+        actions = get_user_article_actions(db, int(user_data["sub"]), url)
+    return {
+        "like": bool(actions.get("like")),
+        "favorite": bool(actions.get("favorite")),
+        "not_interested": bool(actions.get("not_interested")),
+    }
+
+
+# ── Preferences (per-user) ──────────────────────────────────────
+
+@app.get("/api/preferences")
+def get_preferences(authorization: str = Header(None)) -> Dict[str, Any]:
+    user_data = get_user_from_header(authorization)
+    if user_data is None:
+        source = get_memory(store, ("news_feed_agent", "news_source_preferences"), default_news_source_preferences)
+        content = get_memory(store, ("news_feed_agent", "content_preferences"), default_content_preferences)
+        return {"news_sources": json.loads(source) if isinstance(source, str) else list(source or []),
+                "content_preferences": json.loads(content) if isinstance(content, str) else list(content or []),
+                "is_guest": True}
+
+    with get_session() as db:
+        pref = db.scalars(
+            select(UserPreference).where(UserPreference.user_id == int(user_data["sub"]))
+        ).first()
+        if pref:
+            return {"news_sources": pref.news_source_preferences or [],
+                    "content_preferences": pref.content_preferences or [],
+                    "is_guest": False}
+        return {"news_sources": [], "content_preferences": [], "is_guest": False}
+
+
+@app.post("/api/preferences")
+def update_preferences(req: Dict[str, Any], authorization: str = Header(None)) -> Dict[str, Any]:
+    user_data = require_auth(authorization)
+    sources = req.get("news_sources", [])
+    content = req.get("content_preferences", [])
+
+    with get_session() as db:
+        pref = db.scalars(
+            select(UserPreference).where(UserPreference.user_id == int(user_data["sub"]))
+        ).first()
+        if pref:
+            pref.news_source_preferences = sources
+            pref.content_preferences = content
+        else:
+            pref = UserPreference(user_id=int(user_data["sub"]),
+                                  news_source_preferences=sources, content_preferences=content)
+            db.add(pref)
+        db.commit()
+
+    return {"news_sources": sources, "content_preferences": content}
+
+
+# ── Stock / News endpoints remain unchanged ────────────────────
 
 
 @app.get("/")
